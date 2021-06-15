@@ -4,6 +4,8 @@
 #include <time.h>
 #include <mpi.h>
 #include <unistd.h>
+#include "mkl_cblas.h"
+//#include <omp.h>
 
 // serial matrix multiplication
 void serial_matmul(double* A, double* B, double* C, int n, int m, int l) {
@@ -74,10 +76,14 @@ int main(int argc, char* argv[]) {
   
   
   int current_count, current_displ;
+  double start_time, end_time, time_comm=0, time_comp=0; 
+  
   // main loop
   for(int c=0; c<p; c++) {
     current_count = counts[c]/n_loc_max;
     current_displ = displs[c]/n_loc_max;
+    
+    start_time = MPI_Wtime();
   
     // copy my local portion of B to Bloc, to handle non-contiguous data
     for(int i=0; i<n_loc; i++)
@@ -87,13 +93,29 @@ int main(int argc, char* argv[]) {
     // gather   
     MPI_Allgatherv(MPI_IN_PLACE, 0, MPI_DATATYPE_NULL,
                    Bloc, counts, displs, MPI_DOUBLE, MPI_COMM_WORLD);
+                   
+    end_time = MPI_Wtime();
+    time_comm += end_time - start_time;
+    start_time = MPI_Wtime();
 
+#ifdef __DGEMM
+
+     cblas_dgemm( CblasRowMajor, CblasNoTrans, CblasNoTrans, n_loc, current_count, n, 1.0, A, n, Bloc, n_loc_max, 0.0, C + current_displ, n ); 
+
+#else
     // multiply
+    #pragma omp parallel for
     for(int i = 0; i < n_loc; i++)
       for(int j = 0; j < current_count; j++)
         for(int k = 0; k < n; k++)
           C[i*n+j+current_displ] += A[i*n+k] * Bloc[k*n_loc_max+j];    // C is supposed to be initialized to zero
-    
+#endif    
+    end_time = MPI_Wtime();
+    time_comp += end_time - start_time;
+  }
+  
+  if(rank==0) {
+    printf("%lf %lf\n", time_comm, time_comp);
   }
   
 
@@ -139,6 +161,7 @@ int main(int argc, char* argv[]) {
     free(B_all);
     free(C_all);
     free(C_correct);
+    printf("allright\n");
   }
 #endif
 

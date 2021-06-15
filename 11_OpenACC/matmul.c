@@ -154,7 +154,6 @@ int main(int argc, char* argv[]) {
     start_sub_time = MPI_Wtime();
   
     // copy my local portion of B to Bloc, to handle non-contiguous data
-    # pragma acc declare present(B, Bloc)
     # pragma acc parallel loop
     for(int i=0; i<n_loc; i++)
       for(int j=0; j<current_count; j++)

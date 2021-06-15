@@ -8,7 +8,6 @@
 #include <cuda_runtime_api.h>
 #include <cuda.h>
 #include <cublas_v2.h>
-#include <limits.h>
 
 // serial matrix multiplication
 void serial_matmul(double* A, double* B, double* C, int n, int m, int l) {
@@ -72,7 +71,7 @@ int main(int argc, char* argv[]) {
   h_A = (double*)malloc(size);
   h_B = (double*)malloc(size);
   h_C = (double*)malloc(size);
-  //memset(h_C, 0, size);  //TOGLIERLO, NON SERVE!
+
   double* h_Bloc;   // to gather the columns of B
   h_Bloc = (double*)malloc(size_max);
   
@@ -85,8 +84,8 @@ int main(int argc, char* argv[]) {
     #pragma omp for
     for(int i=0; i<n_loc; i++)
       for(int j=0; j<n; j++) {
-        h_A[i*n+j] = i*n+j; //h_A[i*n+j] = rand_r(&seed) % 10;
-        h_B[i*n+j] = i*n+j+100; //h_B[i*n+j] = rand_r(&seed) % 10;
+        h_A[i*n+j] = rand_r(&seed) % 10;
+        h_B[i*n+j] = rand_r(&seed) % 10;
       }
   }
   end_time = MPI_Wtime();
@@ -94,24 +93,6 @@ int main(int argc, char* argv[]) {
   if(rank==0) printf("random init = %lf\n", end_time-start_time);
 #endif
 
-
-  //DEBUG
-  /*
-  sleep(rank);
-  printf("h_A\n");
-  for(int i=0; i<n_loc; i++) {
-      for(int j=0; j<n; j++)
-          printf("%lf ", h_A[i*n+j]);
-        printf("\n");
-      }
-  sleep(rank);
-  printf("h_B\n");
-  for(int i=0; i<n_loc; i++) {
-      for(int j=0; j<n; j++)
-          printf("%lf ", h_B[i*n+j]);
-        printf("\n");
-      }
-  */
 
   // associate MPI process to GPU
   int num_devices=0;
@@ -141,9 +122,6 @@ int main(int argc, char* argv[]) {
   // allocate on device
   cudaError_t err = cudaSuccess;
   double *d_A, *d_Bloc, *d_C;
-  //printf("size=%ld\n", size);   //    QUESTI DEVONO ESSERE LONG INT!!!
-  //printf("size_max=%ld\n", size_max);
-  //printf("rank %d trying to allocate %f GB on gpu\n", rank, (float)(2*size+size_max)/1024/1024/1024);
   
   err = cudaMalloc((void**)&d_A, size);
   if (err != cudaSuccess)
@@ -205,7 +183,6 @@ int main(int argc, char* argv[]) {
       for(int j=0; j<current_count; j++)
         h_Bloc[ (i+mydispl) * n_loc_max + j ] = h_B[ i * n + j+current_displ ];
         
-    //printf("last index=%d\n", (n_loc+mydispl) * n_loc_max + current_count);
         
     // gather   
     MPI_Allgatherv(MPI_IN_PLACE, 0, MPI_DATATYPE_NULL,
@@ -255,18 +232,6 @@ int main(int argc, char* argv[]) {
   
  
   
-  
-  //DEBUG
-  /*
-  sleep(rank);
-  printf("h_C\n");
-  for(int i=0; i<n_loc; i++) {
-      for(int j=0; j<n; j++)
-          printf("%lf ", h_C[i*n+j]);
-        printf("\n");
-      }
-  sleep(1);
-  */
 
 
 #ifdef TEST
@@ -305,14 +270,7 @@ int main(int argc, char* argv[]) {
       for(int j=0; j<n; j++)
         if( C_all[i*n+j] != C_correct[i*n+j] )
           printf("ERROR\n");
-          /*
-    printf("C_correct\n");      
-    for(int i=0; i<n; i++) {
-      for(int j=0; j<n; j++)
-        printf("%lf ", C_correct[i*n+j]);
-        printf("\n");
-      }
-    */
+
           
     free(A_all);
     free(B_all);

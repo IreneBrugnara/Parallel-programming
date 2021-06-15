@@ -1,0 +1,1 @@
+Exercise: implement a distributed all_reduce operation (sum) between all processes in MPI_COMM_WORLD (a ring exchange of communication between processes). Make it working for buffers bigger than 1 element.
